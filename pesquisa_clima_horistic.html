@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pesquisa de Clima · Horistic</title>
+<!-- ============================================================
+  PESQUISA DE CLIMA EM 4 PULSES SEMANAIS (1 tema por semana)
+  Semana 1: Liderança & Reconhecimento
+  Semana 2: Empresa & Carreira
+  Semana 3: Cultura & Pessoas
+  Semana 4: Bem-estar & Estrutura
+  eNPS + satisfação se repetem em todo pulse (tendência semanal).
+
+  SUPABASE (para coletar de todo o time e agregar no painel):
+    create table clima_respostas (
+      id uuid default gen_random_uuid() primary key,
+      created_at timestamptz default now(),
+      dados jsonb
+    );
+    alter table clima_respostas enable row level security;
+    create policy "anon insert" on clima_respostas for insert to anon with check (true);
+    create policy "anon select" on clima_respostas for select to anon using (true);
+  Cole SUPABASE_URL / SUPABASE_ANON_KEY e troque MANAGER_PASSWORD abaixo.
+  Sem credenciais: roda offline (localStorage) só para teste neste navegador.
+  Anonimato: nenhuma resposta guarda nome/e-mail.
+============================================================ -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap');
+:root{--bg:#FFFFFF;--bg2:#F7F7F7;--bg3:#EFEFEF;--border:#E6E6E6;--border2:#D4D4D4;--accent:#FF8300;--accent-dim:rgba(255,131,0,0.08);--accent-mid:rgba(255,131,0,0.22);--text:#141413;--text2:#828E9D;--text3:#AEAEAE;--green:#1A7F4B;--green-dim:rgba(26,127,75,0.08);--red:#C0392B;--red-dim:rgba(192,57,43,0.08);--blue:#1C62C8;}
+*{margin:0;padding:0;box-sizing:border-box}html,body{height:100%}
+body{background:radial-gradient(1200px 600px at 50% -10%,#FFF6EC 0%,#FFFFFF 55%);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+.stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;width:100%}
+.card{width:100%;max-width:620px}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:40;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:12px 20px}
+.topbar-inner{max-width:620px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.brand{font-size:12px;font-weight:700;white-space:nowrap}.brand b{color:var(--accent)}
+.pbar{flex:1;height:8px;background:var(--bg3);border-radius:5px;overflow:hidden}
+.pfill{height:100%;width:0;background:linear-gradient(90deg,#FFB14D,var(--accent));border-radius:5px;transition:width .45s cubic-bezier(.4,0,.2,1)}
+.pcount{font-size:11px;color:var(--text3);font-family:'Instrument Sans',sans-serif;white-space:nowrap;min-width:44px;text-align:right}
+.screen{display:none}.screen.active{display:block;animation:slideIn .42s cubic-bezier(.16,1,.3,1)}
+@keyframes slideIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+.intro{text-align:center}
+.intro .badge{display:inline-block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-mid);padding:5px 13px;border-radius:20px;font-family:'Instrument Sans',sans-serif;margin-bottom:20px}
+.intro h1{font-size:32px;font-weight:700;line-height:1.15;margin-bottom:12px}.intro h1 em{font-style:normal;color:var(--accent)}
+.intro p{font-size:15px;color:var(--text2);max-width:460px;margin:0 auto 22px;line-height:1.7}
+.intro-facts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
+.fact{font-size:12px;color:var(--text2);background:#fff;border:1px solid var(--border);border-radius:20px;padding:7px 14px;display:flex;align-items:center;gap:6px}.fact b{color:var(--text)}
+.theme-tag{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-family:'Instrument Sans',sans-serif;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-mid);padding:6px 14px;border-radius:20px;margin-bottom:18px}
+.choose{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}
+.pcard{text-align:left;background:#fff;border:1.5px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s}
+.pcard:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 18px rgba(255,131,0,.12)}
+.pcard .wk{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-family:'Instrument Sans',sans-serif}
+.pcard .nm{font-size:15px;font-weight:700;margin:5px 0 4px}
+.pcard .ds{font-size:12px;color:var(--text3);line-height:1.5}
+.q-eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.dim-pill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-family:'Instrument Sans',sans-serif;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-mid);padding:5px 12px;border-radius:20px}
+.dim-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.q-index{font-size:11px;color:var(--text3);font-family:'Instrument Sans',sans-serif}
+.q-text{font-size:23px;font-weight:600;line-height:1.3;margin-bottom:8px}
+.q-hint{font-size:13px;color:var(--text3);margin-bottom:24px}
+.likert{display:flex;flex-direction:column;gap:9px}
+.lk{display:flex;align-items:center;gap:14px;border:1.5px solid var(--border2);background:#fff;border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .15s;text-align:left}
+.lk:hover{border-color:var(--accent-mid);background:var(--accent-dim);transform:translateX(3px)}
+.lk.sel{border-color:var(--accent);background:var(--accent);color:#fff;animation:pop .3s}
+.lk .num{width:30px;height:30px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;transition:all .15s}
+.lk:hover .num{background:#fff}.lk.sel .num{background:rgba(255,255,255,.25);color:#fff}.lk .lbl{font-size:14px;font-weight:500}
+.enps{display:grid;grid-template-columns:repeat(11,1fr);gap:6px}
+.ec{aspect-ratio:1;border:1.5px solid var(--border2);background:#fff;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;cursor:pointer;transition:all .14s}
+.ec:hover{border-color:var(--accent-mid);background:var(--accent-dim);transform:translateY(-2px)}
+.ec.sel{border-color:var(--accent);background:var(--accent);color:#fff;animation:pop .3s}
+.enps-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);font-family:'Instrument Sans',sans-serif;margin-top:10px}
+textarea,select,input{width:100%;font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--text);background:#fff;border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;outline:none;transition:border-color .15s}
+textarea:focus,select:focus,input:focus{border-color:var(--accent)}textarea{min-height:120px;resize:vertical}
+.demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.demo-grid label{font-size:12px;color:var(--text2);font-family:'Instrument Sans',sans-serif;display:block;margin-bottom:6px}
+.nav{display:flex;align-items:center;gap:12px;margin-top:26px}
+.btn{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;border:none;border-radius:11px;padding:13px 26px;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(255,131,0,.25)}.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1.5px solid var(--border2);color:var(--text2)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-text{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;font-family:'Instrument Sans',sans-serif;text-decoration:underline}.btn-text:hover{color:var(--accent)}
+.back{position:fixed;left:20px;bottom:22px;background:#fff;border:1.5px solid var(--border2);color:var(--text2);width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;display:none;align-items:center;justify-content:center;transition:all .15s;z-index:35}
+.back:hover{border-color:var(--accent);color:var(--accent)}.back.show{display:flex}
+.encour{font-size:12px;color:var(--accent);font-family:'Instrument Sans',sans-serif;margin-top:16px;text-align:center;min-height:16px}
+.anon{font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif;text-align:center;margin-top:20px}
+.gear{position:fixed;top:14px;right:18px;z-index:50;font-size:12px;color:var(--text3);background:#fff;border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;font-family:'Instrument Sans',sans-serif}
+.gear:hover{border-color:var(--accent);color:var(--accent)}
+.res-hero{text-align:center;margin-bottom:26px}
+.ring{position:relative;width:160px;height:160px;margin:0 auto 6px}.ring svg{transform:rotate(-90deg)}
+.ring-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-val .big{font-size:42px;font-weight:700;color:var(--accent);line-height:1}.ring-val .sm{font-size:11px;color:var(--text3);font-family:'Instrument Sans',sans-serif;margin-top:2px}
+.res-enps{display:inline-block;margin-top:10px;font-size:12px;font-family:'Instrument Sans',sans-serif;padding:5px 14px;border-radius:20px}
+.res-title{font-size:24px;font-weight:700;margin-bottom:4px;text-align:center}.res-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:24px}
+.res-bars{margin-bottom:22px}
+.res-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}.res-row:last-child{border-bottom:none}
+.res-name{font-size:13px;flex:1}.res-track{width:130px;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.res-trackfill{height:100%;border-radius:4px;width:0;transition:width .9s cubic-bezier(.16,1,.3,1)}.res-v{font-size:13px;font-weight:700;width:32px;text-align:right}
+.note{font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif;line-height:1.6;margin-top:14px;text-align:center}
+.mgr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.mgr-title{font-size:22px;font-weight:700}.mgr-sub{font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px}.kpi .v{font-size:30px;font-weight:700;color:var(--accent);line-height:1}.kpi .l{font-size:11px;color:var(--text3);font-family:'Instrument Sans',sans-serif;margin-top:6px}
+.panel{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:16px}
+.panel h3{font-size:13px;font-weight:700;margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);font-family:'Instrument Sans',sans-serif}
+.cmt{font-size:13px;color:var(--text);background:var(--bg2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;line-height:1.55}.cmt:last-child{margin-bottom:0}
+.empty{font-size:13px;color:var(--text3);text-align:center;padding:30px}
+.setup-box{background:#FFF8F0;border:1px solid var(--accent-mid);border-radius:12px;padding:14px 16px;font-size:12px;color:#7A4500;line-height:1.6;margin-bottom:18px;font-family:'Instrument Sans',sans-serif}
+.lock{text-align:center}.lock .ic{font-size:40px;margin-bottom:14px}.lock h2{font-size:22px;font-weight:700;margin-bottom:8px}.lock p{font-size:13px;color:var(--text2);margin-bottom:18px}.lock input{max-width:280px;margin:0 auto 12px;text-align:center}
+@media(max-width:560px){.enps{grid-template-columns:repeat(6,1fr)}.demo-grid,.choose{grid-template-columns:1fr}.q-text{font-size:20px}.intro h1{font-size:26px}.kpis{grid-template-columns:1fr}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="gear" id="gear" onclick="openManager()">⚙ Gestão</div>
+
+<div class="topbar" id="topbar" style="display:none">
+  <div class="topbar-inner"><div class="brand">Horistic <b>·</b> Clima</div><div class="pbar"><div class="pfill" id="pfill"></div></div><div class="pcount" id="pcount">0%</div></div>
+</div>
+
+<div class="stage">
+  <div class="card">
+
+    <!-- INTRO COLABORADOR (sem escolha de tema) -->
+    <div class="screen active" id="screen-choose">
+      <div class="intro">
+        <span class="badge">Gestão de pessoas · Pulse semanal</span>
+        <h1>Pesquisa de <em>Clima</em></h1>
+        <p>Um tema por semana, rapidinho (~3 min) e anônimo. Sua opinião ajuda a Horistic a melhorar.</p>
+        <div class="theme-tag" id="weekTheme"></div>
+        <div class="intro-facts">
+          <div class="fact">🔒 <b>Anônima</b></div>
+          <div class="fact">⏱️ <b>~3 min</b></div>
+          <div class="fact">🎯 <b>1 tema</b></div>
+        </div>
+        <button class="btn btn-primary" onclick="start(suggestedPulse())">Começar →</button>
+        <div class="anon">Nenhum dado identifica quem respondeu. Você verá apenas o seu resultado.</div>
+      </div>
+    </div>
+
+    <!-- QUESTION -->
+    <div class="screen" id="screen-q">
+      <div class="q-eyebrow"><span class="dim-pill"><span class="dot"></span><span id="qPillTxt"></span></span><span class="q-index" id="qIndex"></span></div>
+      <div class="q-text" id="qText"></div>
+      <div class="q-hint" id="qHint"></div>
+      <div id="qBody"></div>
+      <div class="nav" id="qNav"></div>
+      <div class="encour" id="encour"></div>
+    </div>
+
+    <!-- RESULT -->
+    <div class="screen" id="screen-result">
+      <div class="res-hero">
+        <div class="ring"><svg width="160" height="160"><circle cx="80" cy="80" r="70" fill="none" stroke="#EFEFEF" stroke-width="12"/><circle id="ringArc" cx="80" cy="80" r="70" fill="none" stroke="#FF8300" stroke-width="12" stroke-linecap="round" stroke-dasharray="440" stroke-dashoffset="440"/></svg><div class="ring-val"><div class="big" id="resScore">–</div><div class="sm">de 10</div></div></div>
+        <div class="res-enps" id="resEnps"></div>
+      </div>
+      <div class="res-title">Obrigado por responder! 🎉</div>
+      <div class="res-sub" id="resSub"></div>
+      <div class="res-bars" id="resBars"></div>
+      <div class="nav" style="justify-content:center"><button class="btn btn-ghost" onclick="downloadCSV()">Baixar minhas respostas</button><button class="btn btn-text" onclick="restart()">Fechar</button></div>
+      <p class="note">Você vê apenas o seu resultado. O consolidado do time fica só para a gestão, sem identificar quem respondeu.</p>
+    </div>
+
+    <!-- MANAGER LOGIN -->
+    <div class="screen" id="screen-lock">
+      <div class="lock"><div class="ic">🔐</div><h2>Área da gestão</h2><p>Visão consolidada do clima e envio dos pulses. Acesso restrito.</p>
+        <input type="password" id="mgrPass" placeholder="Senha" onkeydown="if(event.key==='Enter')tryLogin()">
+        <div><button class="btn btn-primary" onclick="tryLogin()">Entrar</button></div>
+        <div class="encour" id="lockMsg"></div>
+        <div style="margin-top:18px"><button class="btn btn-text" onclick="backHome()">← Voltar</button></div>
+      </div>
+    </div>
+
+    <!-- MANAGER DASHBOARD -->
+    <div class="screen" id="screen-mgr">
+      <div class="mgr-head"><div><div class="mgr-title">Clima do time · Consolidado</div><div class="mgr-sub" id="mgrSub">Carregando...</div></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="loadDashboard()">↻ Atualizar</button><button class="btn btn-text" onclick="backHome()">Sair</button></div></div>
+      <div id="setupBox"></div>
+      <div id="mgrContent"></div>
+    </div>
+
+  </div>
+</div>
+<button class="back" id="backBtn" onclick="goBack()">←</button>
+
+<script>
+/* ===== CONFIG ===== */
+const SUPABASE_URL='COLE_SUA_URL_AQUI';
+const SUPABASE_ANON_KEY='COLE_SUA_ANON_KEY_AQUI';
+const TABLE='clima_respostas';
+const MANAGER_PASSWORD='horistic2026';
+const sbReady=()=>SUPABASE_URL.startsWith('http')&&SUPABASE_ANON_KEY.length>20;
+
+/* ===== DIMENSÕES (base Gupy) ===== */
+const LIKERT=['Discordo totalmente','Discordo','Neutro','Concordo','Concordo totalmente'];
+const DIMS={
+ lid:{n:'Liderança',q:['Meu gestor direto me dá orientações claras sobre o que é esperado do meu trabalho.','Confio nas decisões tomadas pela minha liderança.','Meu gestor está disponível e me apoia quando preciso.']},
+ fee:{n:'Feedback e reconhecimento',q:['Recebo feedbacks frequentes que me ajudam a melhorar.','Sou reconhecido(a) quando faço um bom trabalho.','O reconhecimento na empresa é justo e baseado em mérito.']},
+ ali:{n:'Alinhamento com a empresa',q:['Entendo claramente os objetivos e a estratégia da Horistic.','Compreendo como meu trabalho contribui para os resultados da empresa.','Acredito no propósito e nos valores da Horistic.']},
+ des:{n:'Desenvolvimento e carreira',q:['Tenho oportunidades de aprender e desenvolver novas habilidades.','Enxergo perspectivas de crescimento profissional na Horistic.','Recebo apoio da empresa para evoluir na minha carreira.']},
+ rel:{n:'Relacionamento interpessoal',q:['Tenho um bom relacionamento com meus colegas de trabalho.','Existe colaboração e ajuda mútua entre as equipes.','Sinto que faço parte de um time, não trabalho isolado.']},
+ jus:{n:'Justiça',q:['As decisões sobre promoções e oportunidades são tomadas de forma justa.','Pessoas em situações semelhantes são tratadas de forma equitativa.','Sinto que minha remuneração é justa para a função que exerço.']},
+ bem:{n:'Bem-estar e felicidade',q:['Consigo manter um equilíbrio saudável entre vida pessoal e trabalho.','Meu volume de trabalho é compatível com minha capacidade de entrega.','Sinto-me motivado(a) e bem na maior parte dos meus dias de trabalho.']},
+ est:{n:'Estrutura e condições',q:['Tenho as ferramentas e os recursos necessários para fazer bem o meu trabalho.','Os processos internos me ajudam, em vez de atrapalhar, no dia a dia.','O ambiente físico/tecnológico de trabalho é adequado.']},
+};
+/* ===== 4 PULSES SEMANAIS ===== */
+const PULSES=[
+ {id:1,wk:'Semana 1',theme:'Liderança & Reconhecimento',dims:['lid','fee'],open:'O que sua liderança poderia fazer para te apoiar melhor?'},
+ {id:2,wk:'Semana 2',theme:'Empresa & Carreira',dims:['ali','des'],open:'O que te faria enxergar mais futuro na Horistic?'},
+ {id:3,wk:'Semana 3',theme:'Cultura & Pessoas',dims:['rel','jus'],open:'Como você descreveria a cultura do time hoje?'},
+ {id:4,wk:'Semana 4',theme:'Bem-estar & Estrutura',dims:['bem','est'],open:'O que mais impacta seu bem-estar no trabalho hoje?'},
+];
+const pulseById=id=>PULSES.find(p=>p.id==id)||PULSES[0];
+
+const answers={},extra={aberta:'',area:'',tempo:'',lid:'',mod:''};
+let cur=-1,steps=[],activePulse=null;
+const $=id=>document.getElementById(id);
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=$(id);void el.offsetWidth;el.classList.add('active');}
+
+/* ===== INTRO LABEL (colaborador não escolhe tema) ===== */
+function renderChooser(){const p=pulseById(suggestedPulse());const el=$('weekTheme');if(el)el.innerHTML='Tema desta semana: <b style="margin-left:4px">'+p.theme+'</b>';}
+
+/* ===== BUILD STEPS FOR A PULSE ===== */
+function buildSteps(p){
+  const s=[];
+  s.push({type:'enps',key:'enps',pill:'Engajamento',text:'Qual a chance de você recomendar a Horistic como um bom lugar para trabalhar?',hint:'0 = nada provável · 10 = recomendaria com certeza'});
+  s.push({type:'likert',key:'sat',pill:'Engajamento',text:'No geral, o quanto você está satisfeito(a) em trabalhar na Horistic?'});
+  p.dims.forEach(did=>DIMS[did].q.forEach((qt,qi)=>s.push({type:'likert',key:did+'_'+qi,pill:DIMS[did].n,text:qt})));
+  s.ratingTotal=s.length;
+  s.push({type:'open',key:'aberta',pill:'Quase lá',text:p.open,hint:'Opcional — escreva à vontade ou pule.'});
+  s.push({type:'demo',key:'demo',pill:'Sobre você',text:'Só para ajudar a segmentar (opcional)',hint:'Nada disso identifica você individualmente.'});
+  return s;
+}
+
+/* ===== RESPONDENT FLOW ===== */
+function start(pulseId){
+  activePulse=pulseById(pulseId||1);
+  steps=buildSteps(activePulse);
+  for(const k in answers)delete answers[k];
+  $('gear').style.display='none';$('topbar').style.display='block';cur=0;showScreen('screen-q');render();
+}
+function ratingAnswered(){let c=0;for(let i=0;i<steps.ratingTotal;i++)if(steps[i].key in answers)c++;return c;}
+function updateProgress(){const c=ratingAnswered(),pct=Math.round(c/steps.ratingTotal*100);$('pfill').style.width=pct+'%';$('pcount').textContent=pct+'%';}
+function render(){
+  const s=steps[cur];
+  $('qPillTxt').textContent=s.pill;
+  $('qIndex').textContent=cur<steps.ratingTotal?`${cur+1} de ${steps.ratingTotal} · ${activePulse.theme}`:activePulse.theme;
+  $('qText').textContent=s.text;$('qHint').textContent=s.hint||'';$('qHint').style.display=s.hint?'block':'none';
+  $('backBtn').classList.toggle('show',cur>0);
+  const body=$('qBody'),nav=$('qNav');body.innerHTML='';nav.innerHTML='';$('encour').textContent='';
+  showScreen('screen-q');updateProgress();
+  if(s.type==='enps'){
+    const w=document.createElement('div');w.className='enps';
+    for(let i=0;i<=10;i++){const b=document.createElement('div');b.className='ec';b.textContent=i;if(answers[s.key]===i)b.classList.add('sel');b.onclick=()=>choose(s.key,i);w.appendChild(b);}
+    body.appendChild(w);const lg=document.createElement('div');lg.className='enps-legend';lg.innerHTML='<span>Nada provável</span><span>Recomendaria</span>';body.appendChild(lg);
+  }else if(s.type==='likert'){
+    const w=document.createElement('div');w.className='likert';
+    for(let i=1;i<=5;i++){const b=document.createElement('div');b.className='lk';if(answers[s.key]===i)b.classList.add('sel');b.innerHTML=`<span class="num">${i}</span><span class="lbl">${LIKERT[i-1]}</span>`;b.onclick=()=>choose(s.key,i);w.appendChild(b);}
+    body.appendChild(w);
+  }else if(s.type==='open'){
+    const ta=document.createElement('textarea');ta.placeholder='Escreva aqui...';ta.value=extra.aberta;ta.oninput=e=>extra.aberta=e.target.value;body.appendChild(ta);
+    nav.appendChild(mkBtn('Continuar →','btn-primary',nextStep));nav.appendChild(mkBtn('Pular','btn-text',nextStep));
+  }else if(s.type==='demo'){
+    const g=document.createElement('div');g.className='demo-grid';
+    g.innerHTML=`<div><label>Área / departamento</label><input type="text" id="d_area" placeholder="Ex.: Comercial"></div>
+      <div><label>Tempo de casa</label><select id="d_tempo"><option value="">Selecione</option><option>Menos de 6 meses</option><option>6 a 12 meses</option><option>1 a 2 anos</option><option>2 a 5 anos</option><option>Mais de 5 anos</option></select></div>
+      <div><label>Cargo de liderança?</label><select id="d_lid"><option value="">Selecione</option><option>Sim</option><option>Não</option></select></div>
+      <div><label>Modelo de trabalho</label><select id="d_mod"><option value="">Selecione</option><option>Presencial</option><option>Híbrido</option><option>Remoto</option></select></div>`;
+    body.appendChild(g);
+    g.querySelector('#d_area').value=extra.area;g.querySelector('#d_tempo').value=extra.tempo;g.querySelector('#d_lid').value=extra.lid;g.querySelector('#d_mod').value=extra.mod;
+    g.querySelector('#d_area').oninput=e=>extra.area=e.target.value;g.querySelector('#d_tempo').onchange=e=>extra.tempo=e.target.value;
+    g.querySelector('#d_lid').onchange=e=>extra.lid=e.target.value;g.querySelector('#d_mod').onchange=e=>extra.mod=e.target.value;
+    nav.appendChild(mkBtn('Enviar e ver meu resultado →','btn-primary',finish));nav.appendChild(mkBtn('Pular','btn-text',finish));
+  }
+}
+function mkBtn(t,c,f){const b=document.createElement('button');b.className='btn '+c;b.textContent=t;b.onclick=f;return b;}
+function choose(key,val){
+  answers[key]=val;const s=steps[cur];
+  const nodes=document.querySelectorAll(s.type==='enps'?'.ec':'.lk');nodes.forEach(n=>n.classList.remove('sel'));
+  const idx=s.type==='enps'?val:val-1;if(nodes[idx])nodes[idx].classList.add('sel');
+  updateProgress();const c=ratingAnswered(),enc=$('encour');
+  if(c===steps.ratingTotal-1)enc.textContent='Última! 🎯';else if(c===Math.ceil(steps.ratingTotal/2))enc.textContent='Metade do caminho! 🚀';else if(c===2)enc.textContent='Boa! Continue 💪';else enc.textContent='';
+  setTimeout(nextStep,360);
+}
+function nextStep(){cur<steps.length-1?(cur++,render()):finish();}
+function goBack(){cur>0?(cur--,render()):location.reload();}
+function dimScore(did,a){const d=DIMS[did];let s=0,nn=0;d.q.forEach((_,qi)=>{if(a[did+'_'+qi]!=null){s+=a[did+'_'+qi];nn++;}});return nn?(s/nn)*2:null;}
+function enpsClass(v){return v>=9?'Promotor':v>=7?'Neutro':'Detrator';}
+async function finish(){
+  $('backBtn').classList.remove('show');$('pfill').style.width='100%';$('pcount').textContent='100%';
+  const ds=activePulse.dims.map(d=>({id:d,n:DIMS[d].n,v:dimScore(d,answers)})).filter(x=>x.v!=null);
+  const overall=ds.length?ds.reduce((a,b)=>a+b.v,0)/ds.length:0;
+  showScreen('screen-result');
+  $('resScore').textContent=overall.toFixed(1);
+  setTimeout(()=>{$('ringArc').style.transition='stroke-dashoffset 1s cubic-bezier(.16,1,.3,1)';$('ringArc').style.strokeDashoffset=440-(overall/10*440);},80);
+  const ev=answers['enps'],cls=enpsClass(ev),color=cls==='Promotor'?'var(--green)':cls==='Detrator'?'var(--red)':'var(--accent)',bg=cls==='Promotor'?'var(--green-dim)':cls==='Detrator'?'var(--red-dim)':'var(--accent-dim)';
+  const re=$('resEnps');re.textContent=`Você é um ${cls} · eNPS ${ev}/10`;re.style.color=color;re.style.background=bg;re.style.border='1px solid '+color;
+  const bars=$('resBars');bars.innerHTML=`<div style="text-align:center;font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif;margin-bottom:8px">Tema da semana: <b style="color:var(--accent)">${activePulse.theme}</b></div>`;
+  ds.forEach(x=>{const col=x.v>=8?'var(--green)':x.v>=6.5?'var(--accent)':'var(--red)';bars.innerHTML+=`<div class="res-row"><div class="res-name">${x.n}</div><div class="res-track"><div class="res-trackfill" data-w="${x.v*10}" style="background:${col}"></div></div><div class="res-v" style="color:${col}">${x.v.toFixed(1)}</div></div>`;});
+  setTimeout(()=>document.querySelectorAll('.res-trackfill').forEach(el=>el.style.width=el.dataset.w+'%'),120);
+  const ok=await saveResponse(collect());
+  $('resSub').textContent=ok?'Suas respostas foram enviadas de forma anônima. ✅':'⚠️ Não foi possível enviar online — ficaram salvas neste navegador.';
+}
+function collect(){
+  const row={timestamp:new Date().toISOString(),pulse:activePulse.theme,pulse_id:activePulse.id,ciclo:window.__ciclo||'',enps:answers['enps'],satisfacao:answers['sat']};
+  activePulse.dims.forEach(did=>{DIMS[did].q.forEach((_,qi)=>row[did+'_'+(qi+1)]=answers[did+'_'+qi]);row['score_'+did]=dimScore(did,answers);});
+  row.aberta=(extra.aberta||'').trim();row.area=extra.area;row.tempo_casa=extra.tempo;row.lideranca=extra.lid;row.modelo=extra.mod;
+  return row;
+}
+async function saveResponse(row){
+  if(sbReady()){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({dados:row})});return r.ok;}catch(e){saveLocal(row);return false;}}
+  saveLocal(row);return true;
+}
+function saveLocal(row){try{const a=JSON.parse(localStorage.getItem('horisticClimaAll')||'[]');a.push(row);localStorage.setItem('horisticClimaAll',JSON.stringify(a));}catch(e){}}
+function downloadCSV(){const row=collect(),keys=Object.keys(row),esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=keys.map(esc).join(',')+'\n'+keys.map(k=>esc(row[k])).join(',');const b=new Blob([csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='clima_horistic_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+function restart(){location.reload();}
+function backHome(){showScreen('screen-choose');$('gear').style.display='block';$('topbar').style.display='none';}
+
+/* ===== MANAGER ===== */
+function openManager(){$('topbar').style.display='none';showScreen('screen-lock');setTimeout(()=>$('mgrPass').focus(),100);}
+function tryLogin(){if($('mgrPass').value===MANAGER_PASSWORD){$('mgrPass').value='';$('lockMsg').textContent='';showScreen('screen-mgr');loadDashboard();}else{$('lockMsg').textContent='Senha incorreta.';}}
+async function loadAll(){
+  if(sbReady()){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=dados&order=created_at.desc`,{headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(r.ok){const j=await r.json();return j.map(x=>x.dados);}}catch(e){}return null;}
+  try{return JSON.parse(localStorage.getItem('horisticClimaAll')||'[]');}catch(e){return [];}
+}
+let MGR_ALL=[],MGR_CYCLE='todos',MGR_PULSE='todos';
+async function loadDashboard(){
+  $('setupBox').innerHTML=sbReady()?'':'<div class="setup-box">⚙ Modo de teste (offline): mostrando respostas deste navegador. Para coletar de todo o time e usar os links, publique o arquivo online e configure o Supabase no topo.</div>';
+  $('mgrContent').innerHTML='<div class="empty">Carregando...</div>';
+  const all=await loadAll();
+  if(all===null){$('mgrContent').innerHTML='<div class="empty">Não foi possível conectar ao banco. Verifique as credenciais do Supabase.</div>';$('mgrSub').textContent='Erro de conexão';return;}
+  MGR_ALL=all;renderMgr();
+}
+function isoWeek(d){d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-day+3);const first=new Date(Date.UTC(d.getUTCFullYear(),0,4));const week=1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7);return [d.getUTCFullYear(),week];}
+function cycleCode(date){const w=isoWeek(date||new Date());return `${w[0]}-W${w[1]}`;}
+function cycleLabel(code){if(!code)return 'Sem ciclo';const m=String(code).match(/(\d+)-W(\d+)/);return m?('Semana '+m[2]+'/'+m[1]):code;}
+function suggestedPulse(){const w=isoWeek(new Date())[1];return ((w-1)%4)+1;}
+function baseUrl(){return location.href.split('#')[0].split('?')[0];}
+function sameMonth(ts){if(!ts)return false;const d=new Date(ts),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
+function themeScoreRows(rows,pulse){const vals=[];pulse.dims.forEach(did=>rows.forEach(r=>{if(r['score_'+did]!=null)vals.push(Number(r['score_'+did]));}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
+const ACTIONS={
+ 1:{low:['Implante 1:1 quinzenal estruturado entre gestor e cada closer.','Crie um ritual semanal de reconhecimento (destaque da semana) na daily.','Padronize critérios de feedback usando dados do CRM.'],
+    med:['Reforce reconhecimento de quem evoluiu, não só quem mais fechou.','Dê feedbacks específicos e acionáveis, não genéricos.'],
+    high:['Mantenha os rituais e documente boas práticas de liderança para escalar ao time.']},
+ 2:{low:['Comunique metas e estratégia em uma call mensal aberta.','Monte um plano de carreira simples com níveis e critérios claros.','Conecte o trabalho de cada um aos resultados da empresa.'],
+    med:['Ofereça trilhas de desenvolvimento (cursos, mentoria interna).','Dê visibilidade dos próximos passos de carreira de cada pessoa.'],
+    high:['Compartilhe cases de crescimento interno para inspirar o time.']},
+ 3:{low:['Promova rituais de integração e momentos de troca entre as pessoas.','Revise critérios de promoção e remuneração para reforçar a percepção de justiça.','Torne transparentes os critérios das decisões.'],
+    med:['Crie espaços de colaboração entre áreas.','Reforce combinados de convivência e respeito no dia a dia.'],
+    high:['Mantenha; convide o time a co-criar e viver os valores na prática.']},
+ 4:{low:['Revise carga de trabalho e metas inalcançáveis.','Priorize corrigir ferramentas/processos que travam o dia a dia (ex.: TradingView, provisionamento de acesso).','Garanta expediente previsível e pausas.'],
+    med:['Mapeie gargalos de processo junto com o time.','Pequenas ações de bem-estar e ergonomia.'],
+    high:['Mantenha; institua melhoria contínua de processos e ferramentas.']},
+};
+let MGR_ALL_RADAR=null;
+function renderMgr(){
+  const all=MGR_ALL,content=$('mgrContent');
+  const cycles=[...new Set(all.map(r=>r.ciclo||''))].sort().reverse();
+  let filtered=all.slice();
+  if(MGR_CYCLE!=='todos')filtered=filtered.filter(r=>(r.ciclo||'')===MGR_CYCLE);
+  if(MGR_PULSE!=='todos')filtered=filtered.filter(r=>String(r.pulse_id)===String(MGR_PULSE));
+  const n=filtered.length;
+  $('mgrSub').textContent=`${all.length} no total · ${n} no recorte · anônimo`;
+  const avg=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
+  const col=v=>v>=8?'var(--green)':v>=6.5?'var(--accent)':'var(--red)';
+  /* SHARE PANEL (somente gestor) */
+  let html=`<div class="panel"><h3>📣 Enviar pulse da semana</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text2);font-family:'Instrument Sans',sans-serif">Tema</label>
+      <select id="pulseSel" style="width:auto" onchange="updateShare()">${PULSES.map(p=>`<option value="${p.id}">${p.wk} · ${p.theme}</option>`).join('')}</select>
+      <span class="mgr-sub" id="cicloLbl"></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="shareLink" readonly style="flex:1;min-width:240px;font-size:13px">
+      <button class="btn btn-ghost" onclick="copyEl('shareLink','Link copiado!')">Copiar link</button>
+      <button class="btn btn-primary" onclick="shareWhats()">Enviar no WhatsApp</button>
+    </div>
+    <div id="shareMsgWarn"></div>
+    <p class="note" style="text-align:left;margin-top:10px">Só o gestor escolhe o tema aqui. O colaborador recebe o link já no tema certo. O eNPS se repete em todos os pulses para acompanhar a tendência.</p>
+  </div>`;
+  /* RADAR */
+  if(all.length){html+=`<div class="panel"><h3>📈 Radar dos temas · semana vs mês</h3><div style="position:relative;height:300px"><canvas id="radarCanvas"></canvas></div><div class="note" style="text-align:left;margin-top:8px">Score 0–10 por tema. <b style="color:var(--accent)">Laranja</b> = semana atual · <b style="color:#9a9a9a">cinza</b> = mês atual.</div></div>`;}
+  /* AÇÕES SUGERIDAS */
+  if(all.length){html+=actionsPanelHtml(all);}
+  /* FILTROS (afetam os blocos abaixo) */
+  html+=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:6px 0 14px"><span class="mgr-sub">Detalhar:</span>
+    <div style="display:flex;gap:8px;align-items:center"><label style="font-size:12px;color:var(--text2);font-family:'Instrument Sans',sans-serif">Tema</label><select id="fPulse" style="width:auto" onchange="setPulse(this.value)"><option value="todos">Todos</option>${PULSES.map(p=>`<option value="${p.id}" ${String(p.id)===String(MGR_PULSE)?'selected':''}>${p.theme}</option>`).join('')}</select></div>`;
+  if(cycles.length>1||(cycles.length===1&&cycles[0])){html+=`<div style="display:flex;gap:8px;align-items:center"><label style="font-size:12px;color:var(--text2);font-family:'Instrument Sans',sans-serif">Ciclo</label><select id="fCycle" style="width:auto" onchange="setCycle(this.value)"><option value="todos">Todos</option>${cycles.map(c=>`<option value="${c}" ${c===MGR_CYCLE?'selected':''}>${cycleLabel(c)}</option>`).join('')}</select></div>`;}
+  html+=`</div>`;
+  if(n===0){content.innerHTML=html+'<div class="empty">Sem respostas neste recorte ainda. Envie o pulse acima e os resultados aparecem aqui.</div>';updateShare();drawRadar();return;}
+  const enpsVals=filtered.map(r=>r.enps).filter(v=>v!=null);
+  const prom=enpsVals.filter(v=>v>=9).length,det=enpsVals.filter(v=>v<=6).length;
+  const enps=enpsVals.length?Math.round((prom/enpsVals.length-det/enpsVals.length)*100):0;
+  const dimRows=Object.keys(DIMS).map(did=>{const vals=filtered.map(r=>r['score_'+did]).filter(v=>v!=null).map(Number);return {n:DIMS[did].n,v:vals.length?avg(vals):null,c:vals.length};}).filter(x=>x.v!=null);
+  const overall=dimRows.length?avg(dimRows.map(x=>x.v)):0;
+  const comments=filtered.map(r=>r.aberta).filter(t=>t&&t.trim());
+  html+=`<div class="kpis">
+    <div class="kpi"><div class="v">${overall.toFixed(1)}</div><div class="l">Score de clima (0–10)</div></div>
+    <div class="kpi"><div class="v" style="color:${enps>=0?'var(--green)':'var(--red)'}">${enps>0?'+':''}${enps}</div><div class="l">eNPS (-100 a +100)</div></div>
+    <div class="kpi"><div class="v">${n}</div><div class="l">Respostas no recorte</div></div>
+  </div>`;
+  html+=`<div class="panel"><h3>Score por dimensão</h3><div class="res-bars">`;
+  dimRows.forEach(x=>{html+=`<div class="res-row"><div class="res-name">${x.n} <span style="color:var(--text3);font-size:11px">(${x.c})</span></div><div class="res-track"><div class="res-trackfill" style="width:${x.v*10}%;background:${col(x.v)}"></div></div><div class="res-v" style="color:${col(x.v)}">${x.v.toFixed(1)}</div></div>`;});
+  html+=`</div></div>`;
+  html+=`<div class="panel"><h3>Comentários abertos (${comments.length})</h3>${comments.length?comments.map(c=>`<div class="cmt">${esc(c)}</div>`).join(''):'<div class="empty">Sem comentários.</div>'}</div>`;
+  html+=`<div class="nav"><button class="btn btn-ghost" onclick="exportAll()">Exportar recorte (CSV)</button></div><p class="note">Respostas anônimas: sem nome, e-mail ou qualquer identificador de quem respondeu.</p>`;
+  content.innerHTML=html;window.__all=filtered;updateShare();drawRadar();
+}
+function actionsPanelHtml(all){
+  const monthRows=all.filter(r=>sameMonth(r.timestamp));const base=monthRows.length?monthRows:all;
+  let h='<div class="panel"><h3>✅ Ações sugeridas por tema</h3>';
+  PULSES.forEach(p=>{
+    const sc=themeScoreRows(base,p);
+    const band=sc==null?'sem':sc<6.5?'low':sc<8?'med':'high';
+    const acts=sc==null?['Ainda sem respostas neste tema — envie o pulse para começar a medir.']:ACTIONS[p.id][band];
+    const c=sc==null?'var(--text3)':sc<6.5?'var(--red)':sc<8?'var(--accent)':'var(--green)';
+    h+=`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:14px">${p.theme}</b><span style="font-size:12px;font-weight:700;color:${c}">${sc==null?'—':sc.toFixed(1)+'/10'}</span></div><ul style="list-style:none;padding:0;margin:0">${acts.map(a=>`<li style="font-size:13px;color:var(--text2);padding:4px 0;display:flex;gap:8px"><span style="color:var(--accent);flex-shrink:0">→</span><span>${esc(a)}</span></li>`).join('')}</ul></div>`;
+  });
+  h+='<p class="note" style="text-align:left">Sugestões baseadas no score do mês (ou no total, se o mês ainda não tem dados). Ponto de partida para as reuniões de gestão.</p></div>';
+  return h;
+}
+function drawRadar(){
+  const cv=document.getElementById('radarCanvas');if(!cv)return;
+  if(typeof Chart==='undefined'){if(cv.parentElement)cv.parentElement.innerHTML='<div class="empty">Gráfico indisponível (sem conexão para carregar a biblioteca).</div>';return;}
+  const labels=PULSES.map(p=>p.theme);
+  const wk=MGR_ALL.filter(r=>(r.ciclo||'')===cycleCode());
+  const mo=MGR_ALL.filter(r=>sameMonth(r.timestamp));
+  const dWk=PULSES.map(p=>{const s=themeScoreRows(wk,p);return s==null?0:+s.toFixed(2);});
+  const dMo=PULSES.map(p=>{const s=themeScoreRows(mo,p);return s==null?0:+s.toFixed(2);});
+  if(MGR_ALL_RADAR){MGR_ALL_RADAR.destroy();}
+  MGR_ALL_RADAR=new Chart(cv,{type:'radar',data:{labels,datasets:[
+    {label:'Mês atual',data:dMo,borderColor:'#AEAEAE',backgroundColor:'rgba(174,174,174,0.12)',pointBackgroundColor:'#AEAEAE',borderWidth:2},
+    {label:'Semana atual',data:dWk,borderColor:'#FF8300',backgroundColor:'rgba(255,131,0,0.15)',pointBackgroundColor:'#FF8300',borderWidth:2}
+  ]},options:{scales:{r:{suggestedMin:0,suggestedMax:10,ticks:{stepSize:2,backdropColor:'transparent'},pointLabels:{font:{size:11}}}},plugins:{legend:{position:'bottom'}},responsive:true,maintainAspectRatio:false}});
+}
+function setCycle(v){MGR_CYCLE=v;renderMgr();}
+function setPulse(v){MGR_PULSE=v;renderMgr();}
+function currentSharePulse(){const s=$('pulseSel');return s?+s.value:suggestedPulse();}
+function shareData(){const pid=currentSharePulse();const code=cycleCode();const link=baseUrl()+'?start=1&pulse='+pid+'&ciclo='+encodeURIComponent(code);return {pid,code,link,theme:pulseById(pid).theme};}
+function updateShare(){
+  const sel=$('pulseSel');if(sel&&!sel.dataset.init){sel.value=suggestedPulse();sel.dataset.init='1';}
+  const {code,link,theme}=shareData();
+  const inp=$('shareLink');if(inp)inp.value=link;
+  const lbl=$('cicloLbl');if(lbl)lbl.textContent=cycleLabel(code)+' · '+theme;
+  const warn=$('shareMsgWarn');
+  if(warn)warn.innerHTML=location.protocol==='file:'?'<div class="setup-box" style="margin-top:12px">⚠ Você está abrindo o arquivo localmente. Este link só funciona para o time depois que a pesquisa estiver publicada online (Netlify, Vercel ou GitHub Pages).</div>':'';
+}
+function shareWhats(){
+  const {code,link,theme}=shareData();
+  const msg=`📊 *Pesquisa de Clima · Horistic*\n*Tema da ${cycleLabel(code).toLowerCase()}: ${theme}*\n\nLeva ~3 min e é 100% anônima. Sua opinião ajuda a melhorar nosso ambiente de trabalho. 🙏\n\n👉 Responder: ${link}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+function copyEl(id,okMsg){const el=$(id);if(!el)return;el.select();try{navigator.clipboard.writeText(el.value);}catch(e){try{document.execCommand('copy');}catch(_){}}if(okMsg)alert(okMsg);}
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+function exportAll(){const all=window.__all||[];if(!all.length)return;const keys=[...new Set(all.flatMap(r=>Object.keys(r)))];const e=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=[keys.map(e).join(',')].concat(all.map(r=>keys.map(k=>e(r[k])).join(','))).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='clima_horistic_consolidado_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+
+/* ===== LINK DIRETO (vindo do WhatsApp) ===== */
+renderChooser();
+(function initFromLink(){
+  const p=new URLSearchParams(location.search);
+  const c=p.get('ciclo');if(c)window.__ciclo=c;
+  const pulse=p.get('pulse');
+  if(p.get('start')==='1'||pulse||c){start(pulse?+pulse:suggestedPulse());}
+})();
+</script>
+</body>
+</html>
