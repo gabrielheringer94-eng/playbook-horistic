@@ -402,6 +402,39 @@ function renderMgr(){
   html+=`<div class="panel"><h3>Score por dimensão</h3><div class="res-bars">`;
   dimRows.forEach(x=>{html+=`<div class="res-row"><div class="res-name">${x.n} <span style="color:var(--text3);font-size:11px">(${x.c})</span></div><div class="res-track"><div class="res-trackfill" style="width:${x.v*10}%;background:${col(x.v)}"></div></div><div class="res-v" style="color:${col(x.v)}">${x.v.toFixed(1)}</div></div>`;});
   html+=`</div></div>`;
+
+  /* ── PERGUNTAS POR DIMENSÃO (estilo Gupy) ── */
+  const activeDims=[...new Set(filtered.flatMap(r=>PULSES.find(p=>String(p.id)===String(r.pulse_id||MGR_PULSE))?.dims||Object.keys(DIMS)))];
+  const dimsToShow=MGR_PULSE!=='todos'?pulseById(MGR_PULSE).dims:Object.keys(DIMS);
+  html+=`<div class="panel"><h3>Perguntas avaliadas · nota por questão</h3>`;
+  dimsToShow.forEach(did=>{
+    const dim=DIMS[did];if(!dim)return;
+    const dimVals=filtered.map(r=>r['score_'+did]).filter(v=>v!=null).map(Number);
+    if(!dimVals.length)return;
+    const dimAvg=dimVals.reduce((a,b)=>a+b,0)/dimVals.length;
+    html+=`<div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">`;
+    html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">`;
+    html+=`<b style="font-size:14px;color:var(--text)">${dim.n}</b>`;
+    html+=`<span style="font-size:18px;font-weight:700;color:${col(dimAvg)}">${dimAvg.toFixed(1)}</span>`;
+    html+=`</div>`;
+    dim.q.forEach((qtext,qi)=>{
+      const key=did+'_'+qi;
+      const qVals=filtered.map(r=>r[key]).filter(v=>v!=null).map(Number);
+      if(!qVals.length)return;
+      const qAvg=qVals.reduce((a,b)=>a+b,0)/qVals.length;
+      const qScore=(qAvg/5)*10;
+      html+=`<div style="margin-bottom:10px">`;
+      html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">`;
+      html+=`<span style="font-size:12px;color:var(--text2);flex:1;padding-right:12px;line-height:1.4">${qtext}</span>`;
+      html+=`<span style="font-size:14px;font-weight:700;color:${col(qScore)};white-space:nowrap;min-width:32px;text-align:right">${qScore.toFixed(1)}</span>`;
+      html+=`</div>`;
+      html+=`<div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">`;
+      html+=`<div style="height:100%;width:${qScore*10}%;background:${col(qScore)};border-radius:3px;transition:width .5s ease"></div>`;
+      html+=`</div></div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
   html+=`<div class="panel"><h3>Comentários abertos (${comments.length})</h3>${comments.length?comments.map(c=>`<div class="cmt">${esc(c)}</div>`).join(''):'<div class="empty">Sem comentários.</div>'}</div>`;
   html+=`<div class="nav"><button class="btn btn-ghost" onclick="exportAll()">Exportar recorte (CSV)</button></div><p class="note">Respostas anônimas: sem nome, e-mail ou qualquer identificador de quem respondeu.</p>`;
   content.innerHTML=html;window.__all=filtered;updateShare();drawRadar();
