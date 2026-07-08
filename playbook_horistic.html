@@ -3943,11 +3943,11 @@ async function callPersonaAI(userMsg, isOpening) {
     : [...simState.messages.slice(0,-1), {role:'user', content: userMsg}];
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`${TK_SUPA_URL}/functions/v1/anthropic-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': 'Bearer ' + TK_SUPA_KEY
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
@@ -3973,9 +3973,9 @@ async function simHint() {
   const p = SIM_PERSONAS[simState.personaIdx];
   const last3 = simState.messages.slice(-6).map(m=>`${m.role==='user'?'Closer':'Cliente'}: ${m.content}`).join('\n');
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`${TK_SUPA_URL}/functions/v1/anthropic-chat`, {
       method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+TK_SUPA_KEY},
       body: JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:150,
@@ -4016,9 +4016,9 @@ async function endSimulation() {
   const userMsgs = simState.messages.filter(m=>m.role==='user').length;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`${TK_SUPA_URL}/functions/v1/anthropic-chat`, {
       method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+TK_SUPA_KEY},
       body: JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:1000,
