@@ -905,6 +905,7 @@ td strong{color:var(--text);font-weight:500}
       <span class="ic">🌡️</span>Clima &amp; Engajamento
       <span style="font-size:9px;font-family:'Instrument Sans',sans-serif;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-mid);padding:1px 6px;border-radius:10px;margin-left:auto">↗</span>
     </a>
+    <a class="sb-item" onclick="nav('allhands',this)"><span class="ic">💬</span>Perguntas · All Hands</a>
     <a class="sb-item" onclick="nav('gestao',this)"><span class="ic">📊</span>Painel do Gestor</a>
   </nav>
   <div class="sb-foot">Gabriel Heringer · Sales Consulting</div>
@@ -2713,6 +2714,49 @@ td strong{color:var(--text);font-weight:500}
     </div>
   </div>
 
+  <!-- ════════════════════ ALL HANDS (time) ════════════════════ -->
+  <div class="page" id="page-allhands">
+    <div class="tk-wrap">
+      <div class="sec-header">
+        <div class="eyebrow">All Hands</div>
+        <div class="sec-title">Perguntas para o All Hands</div>
+        <div class="sec-desc">Mande sua pergunta para a liderança responder no próximo All Hands. Você escolhe enviar anônimo ou com o seu nome.</div>
+      </div>
+
+      <div class="tk-form">
+        <div class="tk-field">
+          <label class="tk-label">Tema desta rodada</label>
+          <div id="ah-tema-display" style="font-size:14px;color:var(--text);background:var(--accent-dim);border:1px solid var(--accent-mid);border-radius:9px;padding:12px 14px;line-height:1.55">Carregando...</div>
+        </div>
+
+        <div class="tk-field">
+          <label class="tk-label">Sua pergunta</label>
+          <textarea class="tk-textarea" id="ah-texto" placeholder="Escreva sua pergunta para o All Hands..."></textarea>
+        </div>
+
+        <div class="tk-field">
+          <label class="tk-label">Como você quer enviar?</label>
+          <div class="tk-owner-grid" style="grid-template-columns:1fr 1fr">
+            <div class="tk-owner selected" id="ah-mode-anon" onclick="ahSetMode('anon')">
+              <div class="tk-owner-avatar">🕶️</div>
+              <div class="tk-owner-name">Anônimo</div>
+            </div>
+            <div class="tk-owner" id="ah-mode-nome" onclick="ahSetMode('nome')">
+              <div class="tk-owner-avatar">🙋</div>
+              <div class="tk-owner-name">Com meu nome</div>
+            </div>
+          </div>
+          <div id="ah-nome-wrap" style="display:none;margin-top:10px">
+            <input class="tk-input" id="ah-nome" type="text" placeholder="Seu nome">
+          </div>
+        </div>
+
+        <button class="tk-submit" id="ah-submit" onclick="ahSubmit()">Enviar pergunta →</button>
+        <div id="ah-feedback" style="display:none;margin-top:12px;padding:12px 16px;border-radius:9px;font-size:13px"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════════════ GESTÃO ════════════════════ -->
   <div class="page" id="page-gestao">
     <!-- LOCK -->
@@ -2736,6 +2780,7 @@ td strong{color:var(--text);font-weight:500}
       <div class="mg-tab-row">
         <button class="mg-tab active" id="mgt-uso" onclick="mgSwitch('uso')">📊 Uso &amp; Treinamentos</button>
         <button class="mg-tab" id="mgt-tickets" onclick="mgSwitch('tickets')">🎫 Tickets</button>
+        <button class="mg-tab" id="mgt-allhands" onclick="mgSwitch('allhands')">💬 All Hands</button>
       </div>
 
       <!-- PANEL USO -->
@@ -2785,6 +2830,23 @@ td strong{color:var(--text);font-weight:500}
         <div class="mg-section">
           <div class="mg-section-title">⏱ Tickets em aberto há mais tempo</div>
           <div id="mg-tk-antigos"><div class="mg-empty">Carregando...</div></div>
+        </div>
+      </div>
+
+      <!-- PANEL ALL HANDS -->
+      <div class="mg-panel" id="mgp-allhands">
+        <div class="mg-section">
+          <div class="mg-section-title">📣 Tema / pergunta enviada ao time</div>
+          <textarea class="tk-textarea" id="ah-tema-input" placeholder="Ex: Envie suas dúvidas sobre a nova estrutura de comissões..."></textarea>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+            <button class="tk-submit" style="margin-top:0;width:auto;padding:10px 18px" id="ah-tema-btn" onclick="ahSaveTema()">Enviar para o time</button>
+            <span id="ah-tema-fb" style="font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif"></span>
+          </div>
+        </div>
+
+        <div class="mg-section">
+          <div class="mg-section-title">💬 Perguntas recebidas <span id="ah-count" style="font-size:12px;color:var(--text3);font-weight:400;font-family:'Instrument Sans',sans-serif"></span></div>
+          <div id="mg-allhands-list"><div class="mg-empty">Carregando...</div></div>
         </div>
       </div>
 
@@ -3543,13 +3605,14 @@ function nav(pageId,el){
   document.getElementById('page-'+pageId).classList.add('active');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const labels={home:'Visão geral',scripts:'Scripts de venda',objecoes:'Contornos de objeção',treino:'Modo treino',funil:'Funil interativo',canal:'Comunicação por canal',priorizacao:'Priorização da base',cadencia:'Cadência de contato',rituais:'Rituais do comercial',lancamentos:'Lançamentos',produtos:'Preço & Produtos',historia:'História e mais',treinamentos:'Conteúdos · Learning',tickets:'Abertura de Ticket',gestao:'Painel do Gestor'};
+  const labels={home:'Visão geral',scripts:'Scripts de venda',objecoes:'Contornos de objeção',treino:'Modo treino',funil:'Funil interativo',canal:'Comunicação por canal',priorizacao:'Priorização da base',cadencia:'Cadência de contato',rituais:'Rituais do comercial',lancamentos:'Lançamentos',produtos:'Preço & Produtos',historia:'História e mais',treinamentos:'Conteúdos · Learning',tickets:'Abertura de Ticket',allhands:'Perguntas · All Hands',gestao:'Painel do Gestor'};
   document.getElementById('crumb-label').textContent=labels[pageId]||'';
   if(pageId==='treino')buildTreino();
   if(pageId==='lancamentos'){ if(!calLoaded){ calLoadFromSupabase().then(()=>{calRender();calShowEditBtn();}); } calRender(); calShowEditBtn(); calInitDnD(); }
   if(pageId==='home')renderProgressGrid();
   if(pageId==='treinamentos')initLmsCards();
   if(pageId==='tickets')loadTickets('todos');
+  if(pageId==='allhands')ahLoadTema();
   if(pageId==='gestao' && document.getElementById('mg-wrap').classList.contains('show')) mgLoadAll();
   if(typeof trackActivity==='function' && PB_USER) trackActivity('pagina', labels[pageId]||pageId);
   openLearningGroup(pageId);
@@ -4285,10 +4348,123 @@ function calShowEditBtn(){
 
 function mgSwitch(tab) {
   mgTab = tab;
-  document.getElementById('mgt-uso').classList.toggle('active', tab==='uso');
-  document.getElementById('mgt-tickets').classList.toggle('active', tab==='tickets');
-  document.getElementById('mgp-uso').classList.toggle('active', tab==='uso');
-  document.getElementById('mgp-tickets').classList.toggle('active', tab==='tickets');
+  ['uso','tickets','allhands'].forEach(t=>{
+    document.getElementById('mgt-'+t).classList.toggle('active', tab===t);
+    document.getElementById('mgp-'+t).classList.toggle('active', tab===t);
+  });
+  if(tab==='allhands') mgLoadAllhands();
+}
+
+// ══════════ ALL HANDS (perguntas do time) ══════════
+function ahEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let ahMode = 'anon';
+function ahSetMode(m){
+  ahMode = m;
+  document.getElementById('ah-mode-anon').classList.toggle('selected', m==='anon');
+  document.getElementById('ah-mode-nome').classList.toggle('selected', m==='nome');
+  document.getElementById('ah-nome-wrap').style.display = m==='nome' ? 'block' : 'none';
+  if(m==='nome'){
+    const n = document.getElementById('ah-nome');
+    if(!n.value && typeof PB_USER!=='undefined' && PB_USER) n.value = PB_USER;
+  }
+}
+
+async function ahLoadTema(){
+  const disp = document.getElementById('ah-tema-display');
+  const fallback = 'Mande sua pergunta para o próximo All Hands 👇';
+  try{
+    const res = await fetch(`${TK_SUPA_URL}/rest/v1/allhands?tipo=eq.tema&select=texto&order=created_at.desc&limit=1`,{
+      headers:{'apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY}
+    });
+    const data = await res.json();
+    const tema = (Array.isArray(data)&&data[0]&&data[0].texto) || fallback;
+    if(disp) disp.textContent = tema;
+    const inp = document.getElementById('ah-tema-input');
+    if(inp && !inp.value && Array.isArray(data)&&data[0]) inp.value = data[0].texto||'';
+  }catch(e){ if(disp) disp.textContent = fallback; }
+}
+
+function ahFeedback(msg, ok){
+  const fb=document.getElementById('ah-feedback');
+  fb.style.display='block';
+  fb.style.background = ok?'var(--green-dim)':'var(--red-dim)';
+  fb.style.color = ok?'var(--green)':'var(--red)';
+  fb.style.border = '1px solid '+(ok?'rgba(26,127,75,.2)':'var(--red-mid)');
+  fb.textContent = msg;
+}
+
+async function ahSubmit(){
+  const texto = document.getElementById('ah-texto').value.trim();
+  if(!texto){ ahFeedback('Escreva sua pergunta antes de enviar.', false); return; }
+  let autor = null;
+  if(ahMode==='nome'){
+    autor = document.getElementById('ah-nome').value.trim() || (typeof PB_USER!=='undefined'&&PB_USER ? PB_USER : '');
+    if(!autor){ ahFeedback('Digite seu nome ou envie como anônimo.', false); return; }
+  }
+  const btn=document.getElementById('ah-submit'); btn.disabled=true; btn.textContent='Enviando...';
+  try{
+    const res = await fetch(`${TK_SUPA_URL}/rest/v1/allhands`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY},
+      body: JSON.stringify({tipo:'pergunta', texto, autor})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    document.getElementById('ah-texto').value='';
+    ahFeedback('✓ Pergunta enviada! Ela vai aparecer no próximo All Hands.', true);
+    if(typeof trackActivity==='function' && PB_USER) trackActivity('allhands','pergunta enviada');
+  }catch(err){
+    ahFeedback('Erro ao enviar: '+(err&&err.message?err.message:err), false);
+  }
+  btn.disabled=false; btn.textContent='Enviar pergunta →';
+}
+
+async function ahSaveTema(){
+  const texto = document.getElementById('ah-tema-input').value.trim();
+  const fb = document.getElementById('ah-tema-fb');
+  if(!texto){ fb.textContent='Escreva o tema primeiro.'; fb.style.color='var(--red)'; return; }
+  const btn=document.getElementById('ah-tema-btn'); btn.disabled=true; btn.textContent='Enviando...';
+  try{
+    const res = await fetch(`${TK_SUPA_URL}/rest/v1/allhands`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY},
+      body: JSON.stringify({tipo:'tema', texto})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    fb.textContent='✓ Tema enviado ao time.'; fb.style.color='var(--green)';
+  }catch(err){
+    fb.textContent='Erro: '+(err&&err.message?err.message:err); fb.style.color='var(--red)';
+  }
+  btn.disabled=false; btn.textContent='Enviar para o time';
+}
+
+async function mgLoadAllhands(){
+  ahLoadTema();
+  const list = document.getElementById('mg-allhands-list');
+  const data = await mgFetch('allhands','tipo=eq.pergunta&select=*&order=created_at.desc&limit=200');
+  if(!Array.isArray(data)){ list.innerHTML='<div class="mg-empty">Erro ao carregar.</div>'; return; }
+  document.getElementById('ah-count').textContent = data.length ? '· '+data.length : '';
+  if(!data.length){ list.innerHTML='<div class="mg-empty">Nenhuma pergunta recebida ainda.</div>'; return; }
+  list.innerHTML = data.map(p=>{
+    const d=new Date(p.created_at);
+    const quando = d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const autor = p.autor ? `<strong style="color:var(--text)">${ahEsc(p.autor)}</strong>` : '<span style="color:var(--text3)">🕶️ Anônimo</span>';
+    return `<div class="tk-item" style="margin-bottom:8px">
+      <div class="tk-item-desc" style="font-size:14px;color:var(--text);margin-bottom:8px">${ahEsc(p.texto)}</div>
+      <div class="tk-item-meta"><span>${autor}</span><span>🕐 ${quando}</span></div>
+      <div class="tk-item-actions"><button class="tk-act" onclick="ahDelete('${p.id}')">Excluir</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function ahDelete(id){
+  if(!confirm('Excluir esta pergunta?')) return;
+  try{
+    await fetch(`${TK_SUPA_URL}/rest/v1/allhands?id=eq.${id}`,{
+      method:'DELETE',
+      headers:{'apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY}
+    });
+    mgLoadAllhands();
+  }catch(e){ alert('Erro ao excluir.'); }
 }
 
 async function mgFetch(table, query) {
