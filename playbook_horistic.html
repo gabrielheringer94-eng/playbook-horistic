@@ -3465,7 +3465,7 @@ async function saveEvent(){
     calRender();
     closeEventEditor();
   }catch(err){
-    edFeedback('Erro ao salvar. A tabela "eventos" existe no Supabase?', false);
+    edFeedback('Erro ao salvar: ' + (err && err.message ? err.message : err), false);
   }
   btn.disabled=false; btn.textContent='Salvar evento';
 }
@@ -3478,11 +3478,11 @@ async function deleteEvent(){
       method:'DELETE',
       headers:{'apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY}
     });
-    if(!res.ok) throw new Error();
+    if(!res.ok) throw new Error(await res.text());
     await calLoadFromSupabase();
     calRender();
     closeEventEditor();
-  }catch(err){ edFeedback('Erro ao excluir.', false); }
+  }catch(err){ edFeedback('Erro ao excluir: ' + (err && err.message ? err.message : err), false); }
 }
 function openEventModal(date,title,detail){
   const m=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
