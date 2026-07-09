@@ -2616,7 +2616,7 @@ td strong{color:var(--text);font-weight:500}
         <div class="tk-grid2">
           <div class="tk-field">
             <label class="tk-label">Seu nome</label>
-            <select class="tk-select" id="tk-autor">
+            <select class="tk-select" id="tk-autor" onchange="tkFillAutorEmail(this.value)">
               <option value="">Selecione seu nome...</option>
               <option>Leonardo</option>
               <option>Luiz</option>
@@ -4348,11 +4348,22 @@ async function mgLoadTickets() {
 const TK_SUPA_URL = 'https://feydpbqdsekolowcxska.supabase.co';
 const TK_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZleWRwYnFkc2Vrb2xvd2N4c2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNDYwMDcsImV4cCI6MjA5NDgyMjAwN30.M9OzkRYM1kgdQlTRjtMxDEmw4k1vtMImGs042gQeW6E';
 const TK_OWNERS = [
-  {name:'Caio',    email:'caio@horistic.com.br',    color:'#1C62C8'},
-  {name:'Fernando',email:'fernando@horistic.com.br',color:'#FF8300'},
-  {name:'Victor',  email:'victor@horistic.com.br',  color:'#1A7F4B'},
-  {name:'Gabriel', email:'gabriel@horistic.com.br', color:'#7C3AED'}
+  {name:'Caio',    email:'caio@horistic.com',        color:'#1C62C8'},
+  {name:'Fernando',email:'fernando@horistic.com',    color:'#FF8300'},
+  {name:'Victor',  email:'naoefacil.btc@gmail.com',  color:'#1A7F4B'},
+  {name:'Gabriel', email:'gabrielheringer94@gmail.com', color:'#7C3AED'}
 ];
+// e-mails dos autores (vendedores) — preenche automaticamente o campo ao selecionar o nome
+const TK_AUTHOR_EMAILS = {
+  'Leonardo':   'leonardo.marques@horistic.com',
+  'Luiz':       'lhfreitas.stz@gmail.com',
+  'Igor':       'igorhoristic@gmail.com',
+  'Alecsander': 'alecsander.horistic@gmail.com'
+};
+function tkFillAutorEmail(nome){
+  const el = document.getElementById('tk-autor-email');
+  if (el && TK_AUTHOR_EMAILS[nome]) el.value = TK_AUTHOR_EMAILS[nome];
+}
 // EDGE FUNCTION — envio de e-mails via Resend (backend Supabase)
 const TK_EMAIL_FN = TK_SUPA_URL + '/functions/v1/ticket-email';
 async function tkEmail(event, ticket){
