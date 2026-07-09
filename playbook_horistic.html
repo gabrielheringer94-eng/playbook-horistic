@@ -2836,16 +2836,28 @@ td strong{color:var(--text);font-weight:500}
       <!-- PANEL ALL HANDS -->
       <div class="mg-panel" id="mgp-allhands">
         <div class="mg-section">
-          <div class="mg-section-title">📣 Tema / pergunta enviada ao time</div>
+          <div class="mg-section-title">🔗 Link para enviar ao time</div>
+          <div style="font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif;margin-bottom:10px">Copie e mande no grupo. O link já vem com a data de hoje — as respostas ficam agrupadas por semana no filtro abaixo.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input class="tk-input" id="ah-link" readonly style="flex:1;min-width:240px;font-size:12px" value="">
+            <button class="tk-submit" style="margin-top:0;width:auto;padding:10px 18px" onclick="ahCopyLink()">Copiar link</button>
+          </div>
+          <div id="ah-link-fb" style="font-size:12px;color:var(--green);font-family:'Instrument Sans',sans-serif;margin-top:8px;display:none">✓ Link copiado! É só colar no grupo do time.</div>
+        </div>
+
+        <div class="mg-section">
+          <div class="mg-section-title">📣 Tema desta rodada <span style="font-size:11px;color:var(--text3);font-weight:400;font-family:'Instrument Sans',sans-serif">(opcional — aparece no link)</span></div>
           <textarea class="tk-textarea" id="ah-tema-input" placeholder="Ex: Envie suas dúvidas sobre a nova estrutura de comissões..."></textarea>
           <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
-            <button class="tk-submit" style="margin-top:0;width:auto;padding:10px 18px" id="ah-tema-btn" onclick="ahSaveTema()">Enviar para o time</button>
+            <button class="tk-submit" style="margin-top:0;width:auto;padding:10px 18px" id="ah-tema-btn" onclick="ahSaveTema()">Salvar tema</button>
             <span id="ah-tema-fb" style="font-size:12px;color:var(--text3);font-family:'Instrument Sans',sans-serif"></span>
           </div>
         </div>
 
         <div class="mg-section">
-          <div class="mg-section-title">💬 Perguntas recebidas <span id="ah-count" style="font-size:12px;color:var(--text3);font-weight:400;font-family:'Instrument Sans',sans-serif"></span></div>
+          <div class="mg-section-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">💬 Perguntas recebidas <span id="ah-count" style="font-size:12px;color:var(--text3);font-weight:400;font-family:'Instrument Sans',sans-serif"></span>
+            <select id="ah-filter" onchange="ahRenderList()" class="tk-select" style="margin-left:auto;width:auto;font-size:12px;padding:6px 10px"><option value="">Todas as semanas</option></select>
+          </div>
           <div id="mg-allhands-list"><div class="mg-empty">Carregando...</div></div>
         </div>
       </div>
@@ -4437,20 +4449,53 @@ async function ahSaveTema(){
   btn.disabled=false; btn.textContent='Enviar para o time';
 }
 
+function ahBuildLink(){
+  const inp = document.getElementById('ah-link'); if(!inp) return;
+  const d = new Date();
+  const semana = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  try{ inp.value = new URL('allhands_horistic.html?s='+semana, location.href).href; }
+  catch(e){ inp.value = 'allhands_horistic.html?s='+semana; }
+}
+function ahCopyLink(){
+  const inp = document.getElementById('ah-link');
+  inp.select(); inp.setSelectionRange(0, 99999);
+  const done = ()=>{ const fb=document.getElementById('ah-link-fb'); fb.style.display='block'; clearTimeout(window._ahLinkT); window._ahLinkT=setTimeout(()=>fb.style.display='none',3000); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(inp.value).then(done).catch(()=>{ try{document.execCommand('copy');}catch(_){}; done(); });
+  } else { try{document.execCommand('copy');}catch(_){}; done(); }
+}
+
+let ahAll = [];
 async function mgLoadAllhands(){
   ahLoadTema();
+  ahBuildLink();
   const list = document.getElementById('mg-allhands-list');
-  const data = await mgFetch('allhands','tipo=eq.pergunta&select=*&order=created_at.desc&limit=200');
-  if(!Array.isArray(data)){ list.innerHTML='<div class="mg-empty">Erro ao carregar.</div>'; return; }
+  const data = await mgFetch('allhands','tipo=eq.pergunta&select=*&order=created_at.desc&limit=300');
+  if(!Array.isArray(data)){ list.innerHTML='<div class="mg-empty">Erro ao carregar.</div>'; ahAll=[]; return; }
+  ahAll = data;
+  const sel = document.getElementById('ah-filter');
+  if(sel){
+    const cur = sel.value;
+    const semanas = [...new Set(data.map(p=>p.semana).filter(Boolean))].sort().reverse();
+    sel.innerHTML = '<option value="">Todas as semanas</option>' + semanas.map(s=>`<option value="${ahEsc(s)}">Semana de ${ahEsc(s)}</option>`).join('');
+    sel.value = cur;
+  }
+  ahRenderList();
+}
+function ahRenderList(){
+  const list = document.getElementById('mg-allhands-list');
+  const f = (document.getElementById('ah-filter')||{}).value || '';
+  const data = f ? ahAll.filter(p=>p.semana===f) : ahAll;
   document.getElementById('ah-count').textContent = data.length ? '· '+data.length : '';
-  if(!data.length){ list.innerHTML='<div class="mg-empty">Nenhuma pergunta recebida ainda.</div>'; return; }
+  if(!data.length){ list.innerHTML='<div class="mg-empty">Nenhuma pergunta'+(f?' nesta semana':' recebida ainda')+'.</div>'; return; }
   list.innerHTML = data.map(p=>{
     const d=new Date(p.created_at);
     const quando = d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     const autor = p.autor ? `<strong style="color:var(--text)">${ahEsc(p.autor)}</strong>` : '<span style="color:var(--text3)">🕶️ Anônimo</span>';
+    const sem = p.semana ? `<span>📅 ${ahEsc(p.semana)}</span>` : '';
     return `<div class="tk-item" style="margin-bottom:8px">
       <div class="tk-item-desc" style="font-size:14px;color:var(--text);margin-bottom:8px">${ahEsc(p.texto)}</div>
-      <div class="tk-item-meta"><span>${autor}</span><span>🕐 ${quando}</span></div>
+      <div class="tk-item-meta"><span>${autor}</span>${sem}<span>🕐 ${quando}</span></div>
       <div class="tk-item-actions"><button class="tk-act" onclick="ahDelete('${p.id}')">Excluir</button></div>
     </div>`;
   }).join('');

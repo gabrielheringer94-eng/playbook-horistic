@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Hands · Horistic</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap');
+:root{
+  --bg:#141413; --card:#fff; --text:#141413; --text2:#828E9D; --text3:#AEAEAE;
+  --border:#E6E6E6; --border2:#D4D4D4; --accent:#FF8300; --accent-dim:rgba(255,131,0,.1);
+  --accent-mid:rgba(255,131,0,.28); --green:#1A7F4B; --green-dim:rgba(26,127,75,.1);
+  --red:#C0392B; --red-dim:rgba(192,57,43,.1); --red-mid:rgba(192,57,43,.25);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',sans-serif;background:linear-gradient(135deg,#141413 0%,#2a2a28 55%,#3d2a10 100%);min-height:100vh;color:var(--text);
+  display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 48px}
+.wrap{width:100%;max-width:540px}
+.brand{color:#fff;text-align:center;margin-bottom:18px}
+.brand .eye{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-family:'Instrument Sans',sans-serif}
+.brand .name{font-size:20px;font-weight:700;margin-top:4px}
+.brand .name b{color:var(--accent)}
+.card{background:var(--card);border-radius:18px;padding:26px 24px 28px;box-shadow:0 24px 70px rgba(0,0,0,.32)}
+.h1{font-size:23px;font-weight:700;line-height:1.2;margin-bottom:6px}
+.sub{font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px}
+.tema{background:var(--accent-dim);border:1px solid var(--accent-mid);border-radius:11px;padding:13px 15px;font-size:14px;line-height:1.55;margin-bottom:20px;color:var(--text)}
+.tema .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-family:'Instrument Sans',sans-serif;font-weight:600;margin-bottom:5px}
+.field{margin-bottom:16px}
+.label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);font-family:'Instrument Sans',sans-serif;font-weight:600;margin-bottom:7px;display:block}
+textarea,input{width:100%;background:#F7F7F7;border:1.5px solid var(--border2);border-radius:11px;padding:12px 14px;font-size:15px;font-family:'Space Grotesk',sans-serif;color:var(--text);outline:none;transition:border-color .15s}
+textarea:focus,input:focus{border-color:var(--accent);background:#fff}
+textarea{resize:vertical;min-height:120px;line-height:1.55}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode{background:#F7F7F7;border:1.5px solid var(--border2);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:all .15s}
+.mode:hover{border-color:var(--accent-mid)}
+.mode.on{border-color:var(--accent);background:var(--accent-dim)}
+.mode .ico{font-size:22px}
+.mode .t{font-size:13px;font-weight:600;color:var(--text2);margin-top:4px}
+.mode.on .t{color:var(--text)}
+.btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:600;font-family:'Space Grotesk',sans-serif;cursor:pointer;transition:opacity .15s;margin-top:6px}
+.btn:hover{opacity:.9}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.fb{display:none;margin-top:14px;padding:12px 15px;border-radius:10px;font-size:13.5px;line-height:1.5}
+.foot{text-align:center;color:rgba(255,255,255,.4);font-size:11px;font-family:'Instrument Sans',sans-serif;margin-top:18px}
+.done{text-align:center;padding:14px 0 6px;display:none}
+.done .big{font-size:52px;margin-bottom:10px}
+.done .t1{font-size:20px;font-weight:700;margin-bottom:6px}
+.done .t2{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:22px}
+.btn-ghost{background:#fff;color:var(--text2);border:1.5px solid var(--border2)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="eye">Horistic · All Hands</div>
+    <div class="name">Perguntas para o <b>All Hands</b></div>
+  </div>
+
+  <div class="card">
+    <!-- FORM -->
+    <div id="form-view">
+      <div class="h1">Manda sua pergunta 👇</div>
+      <div class="sub">Escreva o que você quer que a liderança responda no próximo All Hands. Você escolhe enviar anônimo ou com o seu nome.</div>
+
+      <div class="tema" id="tema"><div class="lbl">Tema desta rodada</div><span id="tema-txt">Carregando...</span></div>
+
+      <div class="field">
+        <label class="label">Sua pergunta</label>
+        <textarea id="texto" placeholder="Ex: Como fica a meta de vendas com a nova estrutura de comissões?"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="label">Como você quer enviar?</label>
+        <div class="modes">
+          <div class="mode on" id="m-anon" onclick="setMode('anon')"><div class="ico">🕶️</div><div class="t">Anônimo</div></div>
+          <div class="mode" id="m-nome" onclick="setMode('nome')"><div class="ico">🙋</div><div class="t">Com meu nome</div></div>
+        </div>
+        <div id="nome-wrap" style="display:none;margin-top:10px">
+          <input id="nome" type="text" placeholder="Seu nome" autocomplete="name">
+        </div>
+      </div>
+
+      <button class="btn" id="send" onclick="enviar()">Enviar pergunta →</button>
+      <div class="fb" id="fb"></div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="done" id="done-view">
+      <div class="big">✅</div>
+      <div class="t1">Pergunta enviada!</div>
+      <div class="t2">Ela vai aparecer para a liderança no próximo All Hands. Obrigado por participar 🙌</div>
+      <button class="btn btn-ghost" onclick="outra()">Enviar outra pergunta</button>
+    </div>
+  </div>
+
+  <div class="foot">Horistic · Playbook Comercial</div>
+</div>
+
+<script>
+const SUPA_URL = 'https://feydpbqdsekolowcxska.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZleWRwYnFkc2Vrb2xvd2N4c2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNDYwMDcsImV4cCI6MjA5NDgyMjAwN30.M9OzkRYM1kgdQlTRjtMxDEmw4k1vtMImGs042gQeW6E';
+const H = {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+// rótulo da semana vem do link (?s=...) — o gestor gera esse link no painel
+const SEMANA = new URLSearchParams(location.search).get('s') || null;
+
+let mode = 'anon';
+function setMode(m){
+  mode = m;
+  document.getElementById('m-anon').classList.toggle('on', m==='anon');
+  document.getElementById('m-nome').classList.toggle('on', m==='nome');
+  document.getElementById('nome-wrap').style.display = m==='nome' ? 'block' : 'none';
+  if(m==='nome') document.getElementById('nome').focus();
+}
+
+async function loadTema(){
+  const el = document.getElementById('tema-txt');
+  const fallback = 'Mande qualquer pergunta que você queira ver respondida no All Hands.';
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/allhands?tipo=eq.tema&select=texto&order=created_at.desc&limit=1`,{headers:H});
+    const d = await res.json();
+    el.textContent = (Array.isArray(d)&&d[0]&&d[0].texto) || fallback;
+  }catch(e){ el.textContent = fallback; }
+}
+loadTema();
+
+function fb(msg, ok){
+  const f=document.getElementById('fb');
+  f.style.display='block';
+  f.style.background = ok?'var(--green-dim)':'var(--red-dim)';
+  f.style.color = ok?'var(--green)':'var(--red)';
+  f.style.border = '1px solid '+(ok?'rgba(26,127,75,.2)':'var(--red-mid)');
+  f.textContent = msg;
+}
+
+async function enviar(){
+  const texto = document.getElementById('texto').value.trim();
+  if(!texto){ fb('Escreva sua pergunta antes de enviar.', false); return; }
+  let autor = null;
+  if(mode==='nome'){
+    autor = document.getElementById('nome').value.trim();
+    if(!autor){ fb('Digite seu nome ou escolha enviar como anônimo.', false); return; }
+  }
+  const btn=document.getElementById('send'); btn.disabled=true; btn.textContent='Enviando...';
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/allhands`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...H},
+      body: JSON.stringify({tipo:'pergunta', texto, autor, semana:SEMANA})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    document.getElementById('form-view').style.display='none';
+    document.getElementById('done-view').style.display='block';
+  }catch(err){
+    fb('Erro ao enviar: '+(err&&err.message?err.message:err), false);
+    btn.disabled=false; btn.textContent='Enviar pergunta →';
+  }
+}
+
+function outra(){
+  document.getElementById('texto').value='';
+  document.getElementById('fb').style.display='none';
+  document.getElementById('send').disabled=false;
+  document.getElementById('send').textContent='Enviar pergunta →';
+  setMode('anon');
+  document.getElementById('nome').value='';
+  document.getElementById('done-view').style.display='none';
+  document.getElementById('form-view').style.display='block';
+}
+</script>
+</body>
+</html>

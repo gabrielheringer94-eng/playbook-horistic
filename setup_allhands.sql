@@ -9,8 +9,11 @@ create table if not exists allhands (
   created_at timestamptz default now(),
   tipo text not null default 'pergunta',   -- 'pergunta' (time) | 'tema' (gestor)
   texto text not null,                      -- a pergunta, ou o tema enviado pelo gestor
-  autor text                                -- nome de quem enviou; null = anônimo
+  autor text,                               -- nome de quem enviou; null = anônimo
+  semana text                               -- rótulo da rodada/semana (do link enviado); null = sem rótulo
 );
+-- se a tabela já existir sem a coluna semana, garante ela:
+alter table allhands add column if not exists semana text;
 
 alter table allhands enable row level security;
 create policy "allhands_select" on allhands for select using (true);
