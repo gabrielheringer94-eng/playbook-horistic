@@ -896,6 +896,7 @@ td strong{color:var(--text);font-weight:500}
         <span class="ic">🎭</span>Role Play
         <span style="font-size:9px;font-family:'Instrument Sans',sans-serif;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-mid);padding:1px 6px;border-radius:10px;margin-left:auto">↗</span>
       </a>
+      <a class="sb-item" onclick="nav('placar',this)"><span class="ic">🏆</span>Placar Role Play</a>
     </div>
 
     <div class="sb-group" style="margin-top:6px">Contexto</div>
@@ -2714,6 +2715,34 @@ td strong{color:var(--text);font-weight:500}
     </div>
   </div>
 
+  <!-- ════════════════════ PLACAR ROLE PLAY ════════════════════ -->
+  <div class="page" id="page-placar">
+    <div class="tk-wrap">
+      <div class="sec-header">
+        <div class="eyebrow">Role Play</div>
+        <div class="sec-title">Placar do time</div>
+        <div class="sec-desc">Ranking dos role plays avaliados. Cada avaliação feita no Role Play (pelos observadores) entra aqui automaticamente para todo o time acompanhar a evolução.</div>
+      </div>
+
+      <div class="mg-kpi-row" style="margin-bottom:24px">
+        <div class="mg-kpi"><div class="mg-kpi-label">Role plays avaliados</div><div class="mg-kpi-num" id="pl-total">—</div></div>
+        <div class="mg-kpi"><div class="mg-kpi-label">Média geral</div><div class="mg-kpi-num" id="pl-media">—</div><div class="mg-kpi-sub">de 60</div></div>
+        <div class="mg-kpi"><div class="mg-kpi-label">Melhor nota</div><div class="mg-kpi-num" id="pl-melhor">—</div><div class="mg-kpi-sub" id="pl-melhor-quem"></div></div>
+        <div class="mg-kpi"><div class="mg-kpi-label">Participantes</div><div class="mg-kpi-num" id="pl-pessoas">—</div></div>
+      </div>
+
+      <div class="mg-section">
+        <div class="mg-section-title">🏆 Ranking por closer <span style="font-size:12px;color:var(--text3);font-weight:400;font-family:'Instrument Sans',sans-serif">(média das avaliações)</span></div>
+        <div id="pl-ranking"><div class="mg-empty">Carregando...</div></div>
+      </div>
+
+      <div class="mg-section">
+        <div class="mg-section-title">🕐 Últimos role plays</div>
+        <div id="pl-historico"><div class="mg-empty">Carregando...</div></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════════════ ALL HANDS (time) ════════════════════ -->
   <div class="page" id="page-allhands">
     <div class="tk-wrap">
@@ -3617,13 +3646,14 @@ function nav(pageId,el){
   document.getElementById('page-'+pageId).classList.add('active');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const labels={home:'Visão geral',scripts:'Scripts de venda',objecoes:'Contornos de objeção',treino:'Modo treino',funil:'Funil interativo',canal:'Comunicação por canal',priorizacao:'Priorização da base',cadencia:'Cadência de contato',rituais:'Rituais do comercial',lancamentos:'Lançamentos',produtos:'Preço & Produtos',historia:'História e mais',treinamentos:'Conteúdos · Learning',tickets:'Abertura de Ticket',allhands:'Perguntas · All Hands',gestao:'Painel do Gestor'};
+  const labels={home:'Visão geral',scripts:'Scripts de venda',objecoes:'Contornos de objeção',treino:'Modo treino',funil:'Funil interativo',canal:'Comunicação por canal',priorizacao:'Priorização da base',cadencia:'Cadência de contato',rituais:'Rituais do comercial',lancamentos:'Lançamentos',produtos:'Preço & Produtos',historia:'História e mais',treinamentos:'Conteúdos · Learning',tickets:'Abertura de Ticket',placar:'Placar Role Play',allhands:'Perguntas · All Hands',gestao:'Painel do Gestor'};
   document.getElementById('crumb-label').textContent=labels[pageId]||'';
   if(pageId==='treino')buildTreino();
   if(pageId==='lancamentos'){ if(!calLoaded){ calLoadFromSupabase().then(()=>{calRender();calShowEditBtn();}); } calRender(); calShowEditBtn(); calInitDnD(); }
   if(pageId==='home')renderProgressGrid();
   if(pageId==='treinamentos')initLmsCards();
   if(pageId==='tickets')loadTickets('todos');
+  if(pageId==='placar')loadPlacar();
   if(pageId==='allhands')ahLoadTema();
   if(pageId==='gestao' && document.getElementById('mg-wrap').classList.contains('show')) mgLoadAll();
   if(typeof trackActivity==='function' && PB_USER) trackActivity('pagina', labels[pageId]||pageId);
@@ -4510,6 +4540,57 @@ async function ahDelete(id){
     });
     mgLoadAllhands();
   }catch(e){ alert('Erro ao excluir.'); }
+}
+
+// ══════════ PLACAR ROLE PLAY ══════════
+async function loadPlacar(){
+  const rank = document.getElementById('pl-ranking');
+  const hist = document.getElementById('pl-historico');
+  let data;
+  try{
+    const res = await fetch(`${TK_SUPA_URL}/rest/v1/roleplay_scores?select=*&order=created_at.desc&limit=500`,{
+      headers:{'apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY}
+    });
+    data = await res.json();
+  }catch(e){ data = null; }
+  const kpi=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  if(!Array.isArray(data)){
+    rank.innerHTML='<div class="mg-empty">Erro ao carregar. A tabela "roleplay_scores" existe no Supabase? (rode setup_roleplay_scores.sql)</div>';
+    hist.innerHTML=''; kpi('pl-total','—'); return;
+  }
+  kpi('pl-total', data.length);
+  if(!data.length){
+    kpi('pl-media','—'); kpi('pl-melhor','—'); kpi('pl-pessoas','0');
+    rank.innerHTML='<div class="mg-empty">Nenhum role play avaliado ainda. As notas aparecem aqui assim que os avaliadores registrarem no Role Play.</div>';
+    hist.innerHTML=''; return;
+  }
+  kpi('pl-media', Math.round(data.reduce((s,r)=>s+(r.score||0),0)/data.length));
+  const melhor = data.reduce((a,b)=>(b.score||0)>(a.score||0)?b:a);
+  kpi('pl-melhor', melhor.score); kpi('pl-melhor-quem', melhor.closer);
+
+  const byCloser = {};
+  data.forEach(r=>{ (byCloser[r.closer]=byCloser[r.closer]||[]).push(r); });
+  kpi('pl-pessoas', Object.keys(byCloser).length);
+  const ranked = Object.entries(byCloser).map(([nome,rs])=>({
+    nome, n:rs.length, media: rs.reduce((s,r)=>s+(r.score||0),0)/rs.length
+  })).sort((a,b)=>b.media-a.media);
+  const medals=['🥇','🥈','🥉'];
+  rank.innerHTML = ranked.map((r,i)=>{
+    const pct = Math.round((r.media/60)*100);
+    const cor = pct>=70?'var(--green)':pct>=50?'var(--accent)':'var(--red)';
+    return `<div class="mg-bar-row">
+      <div class="mg-bar-name" style="width:160px">${medals[i]||('#'+(i+1))} ${ahEsc(r.nome)} <span style="color:var(--text3);font-size:11px">· ${r.n}x</span></div>
+      <div class="mg-bar-track"><div class="mg-bar-fill" style="width:${Math.max(pct,10)}%;background:${cor}"><span class="mg-bar-val">${r.media.toFixed(1)} / 60</span></div></div>
+    </div>`;
+  }).join('');
+
+  hist.innerHTML = `<table class="mg-table"><thead><tr><th>Closer</th><th>Pack</th><th>Nota</th><th>Quando</th></tr></thead><tbody>${
+    data.slice(0,25).map(r=>{
+      const d=new Date(r.created_at);
+      const cor = (r.pct||0)>=70?'var(--green)':(r.pct||0)>=50?'var(--accent)':'var(--red)';
+      return `<tr><td><strong>${ahEsc(r.closer)}</strong></td><td>${ahEsc(r.pack||'—')}</td><td style="color:${cor};font-weight:700">${r.score}/${r.max||60}</td><td>${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td></tr>`;
+    }).join('')
+  }</tbody></table>`;
 }
 
 async function mgFetch(table, query) {

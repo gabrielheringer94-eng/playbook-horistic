@@ -799,6 +799,15 @@ body.mode-avaliador .avaliador-hero{display:block}
           </div>
         </div>
 
+        <!-- CLOSER AVALIADO -->
+        <div class="eval-category">
+          <div class="eval-cat-label">Quem está fazendo o papel de closer</div>
+          <input id="eval-closer" class="eval-comment" style="min-height:0;padding:10px 12px" list="closers-list" placeholder="Nome do closer avaliado" autocomplete="off">
+          <datalist id="closers-list">
+            <option>Leonardo</option><option>Luiz</option><option>Igor</option><option>Alecsander</option>
+          </datalist>
+        </div>
+
         <!-- BANT -->
         <div class="eval-category">
           <div class="eval-cat-label">BANT · Qualificação</div>
@@ -945,6 +954,7 @@ body.mode-avaliador .avaliador-hero{display:block}
           <div class="eval-result-score" id="eval-score-num"></div>
           <div class="eval-result-label">pontos de 60</div>
           <div class="eval-result-msg" id="eval-result-msg"></div>
+          <div id="eval-save-status" style="font-size:12px;font-family:'Instrument Sans',sans-serif;margin-top:10px"></div>
           <button style="margin-top:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:8px 16px;font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;color:var(--text2)" onclick="resetEval()">Nova avaliação</button>
         </div>
 
@@ -995,6 +1005,10 @@ body.mode-avaliador .avaliador-hero{display:block}
 </div>
 
 <script>
+// ── SUPABASE (placar público de role play) ──
+const RP_SUPA_URL = 'https://feydpbqdsekolowcxska.supabase.co';
+const RP_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZleWRwYnFkc2Vrb2xvd2N4c2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNDYwMDcsImV4cCI6MjA5NDgyMjAwN30.M9OzkRYM1kgdQlTRjtMxDEmw4k1vtMImGs042gQeW6E';
+
 // ── PASSWORDS ──
 const PASSWORDS = {
   closer:     'closer2026',
@@ -1134,7 +1148,13 @@ function rate(key, val) {
   });
 }
 
-function submitEval() {
+async function submitEval() {
+  const closer = document.getElementById('eval-closer').value.trim();
+  if (!closer) {
+    alert('Informe o nome do closer que está sendo avaliado — a nota vai para o placar público do time.');
+    document.getElementById('eval-closer').focus();
+    return;
+  }
   const keys = ['b1','b2','b3','b4','s1','s2','s3','s4','e1','e2','e3','e4'];
   const total = keys.reduce((sum, k) => sum + (ratings[k] || 0), 0);
   const max = keys.length * 5;
@@ -1146,7 +1166,7 @@ function submitEval() {
   else if (pct >= 50) msg = 'Execução parcial. BANT ou SPIN ficaram incompletos. Refazer o pack com foco nos gaps.';
   else msg = 'Necessário retomar os fundamentos antes de repetir o role play. Revisar perguntas de diagnóstico.';
 
-  const comment = document.getElementById('eval-comment').value;
+  const comment = document.getElementById('eval-comment').value.trim();
   if (comment) msg += '\n\n"' + comment + '"';
 
   document.getElementById('eval-score-num').textContent = total + ' / ' + max;
@@ -1155,6 +1175,21 @@ function submitEval() {
   document.getElementById('eval-result').style.background = pct >= 70 ? 'var(--green-dim)' : pct >= 50 ? 'var(--accent-dim)' : 'var(--red-dim)';
   document.getElementById('eval-result-msg').style.color = pct >= 70 ? '#0F4D2A' : pct >= 50 ? '#7A4500' : '#7A1A1A';
   document.getElementById('eval-score-num').style.color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--accent)' : 'var(--red)';
+
+  // registra no placar público
+  const st = document.getElementById('eval-save-status');
+  st.textContent = 'Registrando no placar...'; st.style.color = 'var(--text3)';
+  try {
+    const res = await fetch(`${RP_SUPA_URL}/rest/v1/roleplay_scores`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':RP_SUPA_KEY,'Authorization':'Bearer '+RP_SUPA_KEY},
+      body: JSON.stringify({ closer, pack: packNames[activePack]||('Pack '+activePack), score: total, max, pct, comentario: comment||null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    st.textContent = '✓ Nota de ' + closer + ' registrada no placar do time.'; st.style.color = 'var(--green)';
+  } catch (err) {
+    st.textContent = 'Nota calculada, mas falhou ao registrar no placar: ' + (err&&err.message?err.message:err); st.style.color = 'var(--red)';
+  }
 }
 
 function resetEval() {
@@ -1166,6 +1201,10 @@ function resetEval() {
   });
   const comment = document.getElementById('eval-comment');
   if (comment) comment.value = '';
+  const closer = document.getElementById('eval-closer');
+  if (closer) closer.value = '';
+  const st = document.getElementById('eval-save-status');
+  if (st) st.textContent = '';
   const result = document.getElementById('eval-result');
   if (result) result.classList.remove('show');
 }
