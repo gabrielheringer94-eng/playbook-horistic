@@ -234,7 +234,10 @@ td strong{color:var(--text);font-weight:500}
 .cal-nav{display:flex;align-items:center;gap:10px}
 .cal-add-ev{font-size:10px;font-family:'Instrument Sans',sans-serif;color:var(--accent);background:var(--accent-dim);border:1px dashed var(--accent-mid);border-radius:5px;padding:3px 6px;margin-top:4px;cursor:pointer;text-align:center;transition:all .12s}
 .cal-add-ev:hover{background:var(--accent);color:#fff}
-.cal-event.editing{cursor:pointer;outline:1px dashed rgba(0,0,0,.2);outline-offset:1px}
+.cal-event.editing{cursor:grab;outline:1px dashed rgba(0,0,0,.2);outline-offset:1px}
+.cal-event.editing:active{cursor:grabbing}
+.cal-event.cal-dragging{opacity:.4}
+.cal-day.cal-drop{background:var(--accent-dim);box-shadow:inset 0 0 0 2px var(--accent)}
 .cal-nav button{width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text2);transition:all .15s}
 .cal-nav button:hover{border-color:var(--accent);color:var(--accent)}
 .cal-month-label{font-size:16px;font-weight:700;color:var(--text)}
@@ -3303,15 +3306,79 @@ function calRender(){
     const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const evs=calEvents.filter(e=>e.date===ds);
     const addBtn = calEditMode ? `<div class="cal-add-ev" onclick="openEventEditor(null,'${ds}')">+ evento</div>` : '';
-    html+=`<div class="cal-day${cls?' '+cls:''}${isToday?' today':''}"><div class="cal-dn">${day}</div>${evs.map((e,idx)=>{
+    html+=`<div class="cal-day${cls?' '+cls:''}${isToday?' today':''}" data-date="${ds}"><div class="cal-dn">${day}</div>${evs.map((e,idx)=>{
       const gi = calEvents.indexOf(e);
-      return `<div class="cal-event${e.color?' '+e.color:''}${calEditMode?' editing':''}" onclick="${calEditMode?`openEventEditor(${gi})`:`openEventModalIdx(${gi})`}">${e.label}${calEditMode?' ✏️':''}</div>`;
+      const drag = calEditMode ? ` draggable="true" data-gi="${gi}"` : '';
+      return `<div class="cal-event${e.color?' '+e.color:''}${calEditMode?' editing':''}"${drag} onclick="${calEditMode?`openEventEditor(${gi})`:`openEventModalIdx(${gi})`}">${e.label}${calEditMode?' ✏️':''}</div>`;
     }).join('')}${addBtn}</div>`;
   }
   body.innerHTML=html;
 }
 function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}calRender();}
 function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}calRender();}
+
+// ── DRAG & DROP (arrastar evento entre dias, só no modo edição) ──
+let calDragGi = null;
+function calInitDnD(){
+  const body = document.getElementById('cal-body');
+  if(!body || body._dndBound) return;
+  body._dndBound = true;
+  const clearDrop = ()=>body.querySelectorAll('.cal-day.cal-drop').forEach(d=>d.classList.remove('cal-drop'));
+
+  body.addEventListener('dragstart', e=>{
+    const ev = e.target.closest('.cal-event');
+    if(!ev || !calEditMode || ev.dataset.gi===undefined){ return; }
+    calDragGi = parseInt(ev.dataset.gi,10);
+    ev.classList.add('cal-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try{ e.dataTransfer.setData('text/plain', ev.dataset.gi); }catch(_){}
+  });
+  body.addEventListener('dragend', e=>{
+    const ev = e.target.closest('.cal-event'); if(ev) ev.classList.remove('cal-dragging');
+    clearDrop(); calDragGi = null;
+  });
+  body.addEventListener('dragover', e=>{
+    if(calDragGi===null) return;
+    if(!e.target.closest('.cal-day')) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+  });
+  body.addEventListener('dragenter', e=>{
+    if(calDragGi===null) return;
+    const day = e.target.closest('.cal-day'); if(!day) return;
+    clearDrop(); day.classList.add('cal-drop');
+  });
+  body.addEventListener('drop', e=>{
+    if(calDragGi===null) return;
+    const day = e.target.closest('.cal-day'); if(!day) return;
+    e.preventDefault();
+    const gi = calDragGi, newDate = day.dataset.date;
+    calDragGi = null; clearDrop();
+    if(newDate) calMoveEvent(gi, newDate);
+  });
+}
+
+async function calMoveEvent(gi, newDate){
+  const ev = calEvents[gi];
+  if(!ev || ev.date === newDate) return;
+  const oldDate = ev.date;
+  ev.date = newDate;            // move otimista na tela
+  calRender();
+  if(!ev.id) return;            // evento só do seed local (tabela vazia) — não persiste
+  try{
+    const res = await fetch(`${TK_SUPA_URL}/rest/v1/eventos?id=eq.${ev.id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':TK_SUPA_KEY,'Authorization':'Bearer '+TK_SUPA_KEY},
+      body: JSON.stringify({data:newDate})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    await calLoadFromSupabase();
+    calRender();
+  }catch(err){
+    ev.date = oldDate;         // rollback se falhar
+    calRender();
+    alert('Não consegui mover o evento (erro ao salvar no Supabase).');
+  }
+}
 
 function calToggleEdit(){
   calEditMode = !calEditMode;
@@ -3479,7 +3546,7 @@ function nav(pageId,el){
   const labels={home:'Visão geral',scripts:'Scripts de venda',objecoes:'Contornos de objeção',treino:'Modo treino',funil:'Funil interativo',canal:'Comunicação por canal',priorizacao:'Priorização da base',cadencia:'Cadência de contato',rituais:'Rituais do comercial',lancamentos:'Lançamentos',produtos:'Preço & Produtos',historia:'História e mais',treinamentos:'Conteúdos · Learning',tickets:'Abertura de Ticket',gestao:'Painel do Gestor'};
   document.getElementById('crumb-label').textContent=labels[pageId]||'';
   if(pageId==='treino')buildTreino();
-  if(pageId==='lancamentos'){ if(!calLoaded){ calLoadFromSupabase().then(()=>{calRender();calShowEditBtn();}); } calRender(); calShowEditBtn(); }
+  if(pageId==='lancamentos'){ if(!calLoaded){ calLoadFromSupabase().then(()=>{calRender();calShowEditBtn();}); } calRender(); calShowEditBtn(); calInitDnD(); }
   if(pageId==='home')renderProgressGrid();
   if(pageId==='treinamentos')initLmsCards();
   if(pageId==='tickets')loadTickets('todos');
